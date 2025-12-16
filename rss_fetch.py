@@ -88,52 +88,50 @@ def send_email(subject, content, news_bj_date):
     except Exception as e:
         print(f"❌ 发送失败：{e}")
 
-# 🔴 核心修正：1.优先提原生时分 2.无时分时先将UTC转北京时间再提取月日
-def get_source_time_and_timestamp(entry, content):
+# 🔴 核心：提取时间+时间类型标识（时分=True/月日=False）
+def get_source_time_info(entry, content):
     try:
-        # 步骤1：提取content中<time>标签里的原始时分（如02:19）
+        # 提取原生时分
         content = html.unescape(content).replace("\n", "").replace("\r", "").replace("\t", "").strip()
         time_patterns = [
-            r'>\s*(\d{2}:\d{2})\s*</time>',  # 匹配<time>02:19</time>
-            r'datetime="[^"]*T(\d{2}:\d{2}):\d{2}[^"]*"\s*>\s*(\d{2}:\d{2})\s*</time>'  # 匹配带datetime的time标签
+            r'>\s*(\d{2}:\d{2})\s*</time>',
+            r'datetime="[^"]*T(\d{2}:\d{2}):\d{2}[^"]*"\s*>\s*(\d{2}:\d{2})\s*</time>'
         ]
         show_time = None
+        is_hour_minute = False  # 时间类型标识：True=时分，False=月日
+
         for pattern in time_patterns:
             match = re.search(pattern, content, re.IGNORECASE)
             if match:
-                # 取分组里的时分（兼容两种正则的分组位置）
                 show_time = match.group(1).strip() if match.group(1) else match.group(2).strip()
+                is_hour_minute = True
                 break
         
-        if show_time:
-            # 有原生时分：生成「当日+时分」的时间戳（保证时分排序优先级）
+        if is_hour_minute and show_time:
+            # 时分类型：生成当日+时分的时间戳
             current_date = datetime.now().strftime("%Y-%m-%d")
             full_time = datetime.strptime(f"{current_date} {show_time}", "%Y-%m-%d %H:%M")
-            return show_time, full_time.timestamp()
+            timestamp = full_time.timestamp()
+            return show_time, timestamp, is_hour_minute
         else:
-            # 步骤2：无原生时分 → 先将UTC时间转北京时间，再提取月日
+            # 月日类型：先转北京时间再提取月日
             entry_time = entry.get("updated", entry.get("published", ""))
             if entry_time:
-                # 解析UTC时间（带Z的ISO格式）
                 utc_time = datetime.fromisoformat(entry_time.replace("Z", "+00:00"))
-                # UTC+8转换为北京时间
                 bj_time = utc_time + timedelta(hours=8)
-                # 提取北京时间的月日作为展示时间
                 show_time = bj_time.strftime("%m-%d")
-                # 生成北京时间的月日时间戳（用于排序）
-                month_day_timestamp = datetime(bj_time.year, bj_time.month, bj_time.day).timestamp()
-                return show_time, month_day_timestamp
-            # 终极兜底：用当前北京时间的月日
-            current_bj = datetime.now()
-            show_time = current_bj.strftime("%m-%d")
-            month_day_timestamp = datetime(current_bj.year, current_bj.month, current_bj.day).timestamp()
-            return show_time, month_day_timestamp
+                timestamp = datetime(bj_time.year, bj_time.month, bj_time.day).timestamp()
+            else:
+                current_bj = datetime.now()
+                show_time = current_bj.strftime("%m-%d")
+                timestamp = datetime(current_bj.year, current_bj.month, current_bj.day).timestamp()
+            return show_time, timestamp, is_hour_minute
     except Exception as e:
-        # 异常兜底：用当前北京时间的月日
+        # 异常兜底：月日类型
         current_bj = datetime.now()
         show_time = current_bj.strftime("%m-%d")
-        month_day_timestamp = datetime(current_bj.year, current_bj.month, current_bj.day).timestamp()
-        return show_time, month_day_timestamp
+        timestamp = datetime(current_bj.year, current_bj.month, current_bj.day).timestamp()
+        return show_time, timestamp, False
 
 # 提取资讯的完整北京时间（年-月-日）用于邮件标题
 def get_news_bj_date(entry):
@@ -147,10 +145,10 @@ def get_news_bj_date(entry):
     except:
         return datetime.now().strftime("%Y-%m-%d")
 
-# 核心逻辑：按信息源原生时间排序
+# 核心逻辑：时分优先，再按时间戳排序
 def fetch_rss():
     pushed_ids = get_pushed_ids()
-    all_news = []  # 存储：(原生时间戳, 来源, 展示时间, 标题, 链接, 资讯ID, 完整日期)
+    all_news = []  # 存储：(时间类型标识, 时间戳, 来源, 展示时间, 标题, 链接, 资讯ID, 完整日期)
     source_counter = {"路透社": 0, "彭博社": 0}
     global_counter = 0
 
@@ -165,24 +163,24 @@ def fetch_rss():
 
                 if entry_id not in pushed_ids and entry_id and title and link.startswith(("http", "https")):
                     news_bj_date = get_news_bj_date(entry)
-                    # 获取信息源原生的展示时间和排序时间戳
-                    show_time, source_timestamp = get_source_time_and_timestamp(entry, content)
-                    all_news.append((source_timestamp, source, show_time, title, link, entry_id, news_bj_date))
+                    # 获取时间信息+类型标识
+                    show_time, source_timestamp, is_hour_minute = get_source_time_info(entry, content)
+                    all_news.append((is_hour_minute, source_timestamp, source, show_time, title, link, entry_id, news_bj_date))
                     save_pushed_id(entry_id)
         except Exception as e:
             print(f"⚠️ {source}抓取出错：{e}")
 
-    # 按信息源原生时间戳倒序排序（有时分按时分，无时分按北京时间月日）
-    all_news.sort(key=lambda x: -x[0])
+    # 🔴 排序逻辑：1.时间类型（时分=True在前） 2.时间戳倒序
+    all_news.sort(key=lambda x: (-x[0], -x[1]))
     news_html_list = []
 
     if all_news:
-        display_bj_date = all_news[0][6]
+        display_bj_date = all_news[0][7]
     else:
         display_bj_date = datetime.now().strftime("%Y-%m-%d")
 
     for news in all_news:
-        source_timestamp, source, show_time, title, link, _, _ = news
+        is_hour_minute, source_timestamp, source, show_time, title, link, _, _ = news
         global_counter += 1
         source_counter[source] += 1
         source_seq = source_counter[source]
