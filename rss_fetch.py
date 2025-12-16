@@ -14,6 +14,9 @@ GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD", "")
 RECEIVER_EMAILS = os.getenv("RECEIVER_EMAILS", "")
 # ------------------------------------------------------------------
 
+# 🔴 自定义发件人昵称（直接修改等号后的文字即可）
+CUSTOM_NICKNAME = "i"  # 这里替换成你想要的称呼
+
 # 数据源配置（路透社+彭博社，小白不用动）
 RSS_SOURCES = [
     ("https://reutersnew.buzzing.cc/feed.xml", "路透社"),
@@ -64,7 +67,8 @@ def send_email(subject, content, news_bj_date):
     </html>
     """
     msg = MIMEText(html_content, "html", "utf-8")
-    msg["From"] = GMAIL_EMAIL  # 发件人：从环境变量读取
+    # 🔴 修改发件人展示格式：昵称 + 邮箱
+    msg["From"] = f"{CUSTOM_NICKNAME} <{GMAIL_EMAIL}>"  # 发件人：自定义昵称+邮箱
     msg["To"] = RECEIVER_EMAILS  # 收件人：从环境变量读取
     msg["Subject"] = subject  # 邮件标题：完整北京时间（年-月-日）
 
@@ -184,3 +188,4 @@ def fetch_rss():
 # 执行脚本（小白不用动）
 if __name__ == "__main__":
     fetch_rss()
+
