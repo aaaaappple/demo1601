@@ -1,7 +1,8 @@
-# 导入工具（小白不用动）
+# 导入工具（仅新增Header类，其余不动）
 import feedparser
 import smtplib
 from email.mime.text import MIMEText
+from email.header import Header  # 仅新增：用于设置发件人显示名称
 from datetime import datetime, timedelta
 import os
 import html
@@ -12,6 +13,8 @@ import re
 GMAIL_EMAIL = os.getenv("GMAIL_EMAIL", "")
 GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD", "")
 RECEIVER_EMAILS = os.getenv("RECEIVER_EMAILS", "")
+# 仅新增：自定义发件人显示称呼（改这里即可，比如"财经快讯""资讯机器人"）
+CUSTOM_SENDER_NAME = "路彭速递"
 # ------------------------------------------------------------------
 
 # 数据源配置（路透社+彭博社，小白不用动）
@@ -41,7 +44,7 @@ def save_pushed_id(id):
     with open("pushed_ids.txt", "a", encoding="utf-8") as f:
         f.write(f"{id}\n")
 
-# 发送邮件（Gmail发件+批量收件，小白不用动）
+# 发送邮件（仅修改msg["From"]一行，其余不动）
 def send_email(subject, content, news_bj_date):
     html_content = f"""
     <!DOCTYPE html>
@@ -64,15 +67,16 @@ def send_email(subject, content, news_bj_date):
     </html>
     """
     msg = MIMEText(html_content, "html", "utf-8")
-    msg["From"] = GMAIL_EMAIL  # 发件人：从环境变量读取
-    msg["To"] = RECEIVER_EMAILS  # 收件人：从环境变量读取
-    msg["Subject"] = subject  # 邮件标题：完整北京时间（年-月-日）
+    # 仅修改这一行：用自定义称呼替换原GMAIL_EMAIL的显示
+    msg["From"] = Header(f"{CUSTOM_SENDER_NAME} <{GMAIL_EMAIL}>", "utf-8")
+    msg["To"] = RECEIVER_EMAILS  # 收件人：从环境变量读取（不动）
+    msg["Subject"] = subject  # 邮件标题：完整北京时间（年-月-日）（不动）
 
     try:
         # 连接Gmail服务器（固定参数，小白不用动）
         smtp = smtplib.SMTP_SSL("smtp.gmail.com", 465)
-        smtp.login(GMAIL_EMAIL, GMAIL_APP_PASSWORD)  # 登录信息从环境变量读取
-        smtp.sendmail(GMAIL_EMAIL, RECEIVER_EMAILS.split(","), msg.as_string())  # 批量发邮件
+        smtp.login(GMAIL_EMAIL, GMAIL_APP_PASSWORD)  # 登录信息从环境变量读取（不动）
+        smtp.sendmail(GMAIL_EMAIL, RECEIVER_EMAILS.split(","), msg.as_string())  # 批量发邮件（不动）
         smtp.quit()
         print("✅ 邮件推送成功！发件人：Gmail（方案一安全版）")
     except smtplib.SMTPAuthenticationError:
@@ -184,3 +188,4 @@ def fetch_rss():
 # 执行脚本（小白不用动）
 if __name__ == "__main__":
     fetch_rss()
+
