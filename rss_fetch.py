@@ -7,22 +7,22 @@ import os
 import html
 import re
 
-# ---------------------- 方案一专用：读取GitHub环境变量（关键！） ----------------------
+# ---------------------- 环境变量读取 ----------------------
 GMAIL_EMAIL = os.getenv("GMAIL_EMAIL", "")
 GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD", "")
 RECEIVER_EMAILS = os.getenv("RECEIVER_EMAILS", "")
 # ------------------------------------------------------------------
 
-# 🔴 自定义发件人昵称（直接修改等号后的文字即可）
+# 自定义发件人昵称
 CUSTOM_NICKNAME = "aa快讯"
 
-# 数据源配置（小白不用动）
+# 数据源配置
 RSS_SOURCES = [
     ("https://reutersnew.buzzing.cc/feed.xml", "路透社"),
     ("https://bloombergnew.buzzing.cc/feed.xml", "彭博社")
 ]
 
-# 邮件颜色配置（小白不用动）
+# 邮件颜色配置
 COLORS = {
     "time": "#F97316",
     "reuters": "#E63946",
@@ -31,7 +31,7 @@ COLORS = {
     "title": "#2E4057"
 }
 
-# 防重复推送（小白不用动）
+# 防重复推送
 def get_pushed_ids():
     if not os.path.exists("pushed_ids.txt"):
         return set()
@@ -42,7 +42,7 @@ def save_pushed_id(id):
     with open("pushed_ids.txt", "a", encoding="utf-8") as f:
         f.write(f"{id}\n")
 
-# 发送邮件（对每个收件人单独发送，To字段仅显示收件人自身）
+# 发送邮件（单独发送，收件人仅见自己）
 def send_email(subject, content, news_bj_date):
     html_content = f"""
     <!DOCTYPE html>
@@ -64,38 +64,33 @@ def send_email(subject, content, news_bj_date):
     </body>
     </html>
     """
-    # 拆分收件人列表并过滤空值
     receiver_list = [email.strip() for email in RECEIVER_EMAILS.split(",") if email.strip()]
     if not receiver_list:
         print("❌ 无有效收件人邮箱")
         return
 
     try:
-        # 连接Gmail服务器（仅连接一次，循环发送）
         smtp = smtplib.SMTP_SSL("smtp.gmail.com", 465)
         smtp.login(GMAIL_EMAIL, GMAIL_APP_PASSWORD)
-        print(f"✅ 成功连接Gmail服务器，开始向{len(receiver_list)}个收件人发送邮件")
+        print(f"✅ 连接Gmail成功，向{len(receiver_list)}个收件人发送")
 
-        # 遍历每个收件人，单独生成邮件并发送
         for receiver in receiver_list:
             msg = MIMEText(html_content, "html", "utf-8")
-            msg["From"] = f"{CUSTOM_NICKNAME} <{GMAIL_EMAIL}>"  # 发件人昵称+邮箱
-            msg["To"] = receiver  # To字段仅填写当前收件人邮箱
-            msg["Subject"] = subject  # 邮件标题
-
-            # 发送给单个收件人
+            msg["From"] = f"{CUSTOM_NICKNAME} <{GMAIL_EMAIL}>"
+            msg["To"] = receiver
+            msg["Subject"] = subject
             smtp.sendmail(GMAIL_EMAIL, [receiver], msg.as_string())
             print(f"✅ 已发送给：{receiver}")
 
         smtp.quit()
-        print("✅ 所有收件人邮件发送完成！")
+        print("✅ 所有邮件发送完成！")
     except smtplib.SMTPAuthenticationError:
-        print("❌ Gmail登录失败！检查邮箱/密码和环境变量")
+        print("❌ Gmail登录失败，检查邮箱/密码和环境变量")
     except Exception as e:
         print(f"❌ 发送失败：{e}")
 
-# 提取资讯展示时间（小白不用动）
-def get_show_time(entry, content):
+# 🔴 优化：提取完整的展示时间（日期+时分），并返回精准时间戳
+def get_show_time_and_timestamp(entry, content, news_bj_date):
     try:
         content = html.unescape(content).replace("\n", "").replace("\r", "").replace("\t", "").strip()
         time_patterns = [
@@ -103,36 +98,47 @@ def get_show_time(entry, content):
             r'<time[^>]*>\s*(\d{2}:\d{2})\s*</time>',
             r'datetime="[^"]*T(\d{2}:\d{2}):\d{2}[^"]*"'
         ]
+        show_time = None
         for pattern in time_patterns:
             match = re.search(pattern, content, re.IGNORECASE)
             if match:
-                return match.group(1).strip()
-        entry_time = entry.get("updated", entry.get("published", ""))
-        if entry_time:
-            time_obj = datetime.fromisoformat(entry_time.replace("Z", "+00:00"))
-            return time_obj.strftime("%m-%d")
-        return datetime.now().strftime("%m-%d")
+                show_time = match.group(1).strip()
+                break
+        
+        # 补全为「日期 时分」格式，生成精准时间戳
+        if show_time:
+            full_time_str = f"{news_bj_date} {show_time}"
+            full_time = datetime.strptime(full_time_str, "%Y-%m-%d %H:%M")
+            return show_time, full_time.timestamp()
+        else:
+            # 兜底：用资讯的原始时间戳
+            entry_time = entry.get("updated", entry.get("published", ""))
+            if entry_time:
+                utc_time = datetime.fromisoformat(entry_time.replace("Z", "+00:00"))
+                bj_time = utc_time + timedelta(hours=8)
+                return bj_time.strftime("%H:%M"), bj_time.timestamp()
+            current_bj = datetime.now()
+            return current_bj.strftime("%H:%M"), current_bj.timestamp()
     except:
-        return datetime.now().strftime("%m-%d")
+        current_bj = datetime.now()
+        return current_bj.strftime("%H:%M"), current_bj.timestamp()
 
-# 提取资讯UTC时间转北京时间（小白不用动）
-def get_news_bj_info(entry):
+# 提取资讯UTC时间转北京时间（仅保留日期）
+def get_news_bj_date(entry):
     try:
         entry_time = entry.get("updated", entry.get("published", ""))
         if entry_time:
             utc_time = datetime.fromisoformat(entry_time.replace("Z", "+00:00"))
             bj_time = utc_time + timedelta(hours=8)
-            return bj_time.timestamp(), bj_time.strftime("%Y-%m-%d")
-        current_bj = datetime.now()
-        return current_bj.timestamp(), current_bj.strftime("%Y-%m-%d")
+            return bj_time.strftime("%Y-%m-%d")
+        return datetime.now().strftime("%Y-%m-%d")
     except:
-        current_bj = datetime.now()
-        return current_bj.timestamp(), current_bj.strftime("%Y-%m-%d")
+        return datetime.now().strftime("%Y-%m-%d")
 
-# 核心逻辑（小白不用动）
+# 核心逻辑：按精准时间戳混合排序所有资讯
 def fetch_rss():
     pushed_ids = get_pushed_ids()
-    all_news = []
+    all_news = []  # 存储：(精准时间戳, 来源, 展示时间, 标题, 链接, 资讯ID, 完整日期)
     source_counter = {"路透社": 0, "彭博社": 0}
     global_counter = 0
 
@@ -146,13 +152,15 @@ def fetch_rss():
                 content = entry.get("content", [{}])[0].get("value", "") if entry.get("content") else ""
 
                 if entry_id not in pushed_ids and entry_id and title and link.startswith(("http", "https")):
-                    show_time = get_show_time(entry, content)
-                    bj_timestamp, news_bj_date = get_news_bj_info(entry)
-                    all_news.append((bj_timestamp, source, show_time, title, link, entry_id, news_bj_date))
+                    news_bj_date = get_news_bj_date(entry)
+                    # 🔴 获取精准的展示时间和时间戳
+                    show_time, precise_timestamp = get_show_time_and_timestamp(entry, content, news_bj_date)
+                    all_news.append((precise_timestamp, source, show_time, title, link, entry_id, news_bj_date))
                     save_pushed_id(entry_id)
         except Exception as e:
-            print(f"⚠️ {source}资讯抓取出错：{e}")
+            print(f"⚠️ {source}抓取出错：{e}")
 
+    # 🔴 按精准时间戳倒序排序（核心：混合来源，按时间先后）
     all_news.sort(key=lambda x: -x[0])
     news_html_list = []
 
@@ -162,7 +170,7 @@ def fetch_rss():
         display_bj_date = datetime.now().strftime("%Y-%m-%d")
 
     for news in all_news:
-        bj_timestamp, source, show_time, title, link, _, _ = news
+        precise_timestamp, source, show_time, title, link, _, _ = news
         global_counter += 1
         source_counter[source] += 1
         source_seq = source_counter[source]
@@ -185,7 +193,7 @@ def fetch_rss():
         email_title = f"快讯 | {display_bj_date}"
         send_email(email_title, final_content, display_bj_date)
     else:
-        print("ℹ️  暂无新资讯，本次不推送邮件")
+        print("ℹ️  暂无新资讯，本次不推送")
 
 if __name__ == "__main__":
     fetch_rss()
