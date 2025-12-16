@@ -15,7 +15,7 @@ RECEIVER_EMAILS = os.getenv("RECEIVER_EMAILS", "")
 # ------------------------------------------------------------------
 
 # 🔴 自定义发件人昵称（直接修改等号后的文字即可）
-CUSTOM_NICKNAME = "快讯"  # 这里替换成你想要的称呼
+CUSTOM_NICKNAME = "aa快讯"  # 这里替换成你想要的称呼
 
 # 数据源配置（路透社+彭博社，小白不用动）
 RSS_SOURCES = [
@@ -44,7 +44,7 @@ def save_pushed_id(id):
     with open("pushed_ids.txt", "a", encoding="utf-8") as f:
         f.write(f"{id}\n")
 
-# 发送邮件（Gmail发件+批量收件，小白不用动）
+# 发送邮件（Gmail发件+密送收件，收件人互不可见）
 def send_email(subject, content, news_bj_date):
     html_content = f"""
     <!DOCTYPE html>
@@ -67,18 +67,23 @@ def send_email(subject, content, news_bj_date):
     </html>
     """
     msg = MIMEText(html_content, "html", "utf-8")
-    # 🔴 修改发件人展示格式：昵称 + 邮箱
-    msg["From"] = f"{CUSTOM_NICKNAME} <{GMAIL_EMAIL}>"  # 发件人：自定义昵称+邮箱
-    msg["To"] = RECEIVER_EMAILS  # 收件人：从环境变量读取
+    # 🔴 发件人：自定义昵称+邮箱
+    msg["From"] = f"{CUSTOM_NICKNAME} <{GMAIL_EMAIL}>"
+    # 🔴 To字段填发件人自身（避免空值，收件人看不到这个字段的实际作用）
+    msg["To"] = GMAIL_EMAIL
+    # 🔴 拆分收件人列表并过滤空值，作为密送对象（互不可见）
+    receiver_list = [email.strip() for email in RECEIVER_EMAILS.split(",") if email.strip()]
+    msg["Bcc"] = ", ".join(receiver_list)  # 密送字段，邮件头不显示具体地址
     msg["Subject"] = subject  # 邮件标题：完整北京时间（年-月-日）
 
     try:
         # 连接Gmail服务器（固定参数，小白不用动）
         smtp = smtplib.SMTP_SSL("smtp.gmail.com", 465)
         smtp.login(GMAIL_EMAIL, GMAIL_APP_PASSWORD)  # 登录信息从环境变量读取
-        smtp.sendmail(GMAIL_EMAIL, RECEIVER_EMAILS.split(","), msg.as_string())  # 批量发邮件
+        # 🔴 发送时指定密送列表，每个收件人仅看到自己
+        smtp.sendmail(GMAIL_EMAIL, receiver_list, msg.as_string())
         smtp.quit()
-        print("✅ 邮件推送成功！发件人：Gmail（方案一安全版）")
+        print("✅ 邮件推送成功！密送模式（收件人互不可见）")
     except smtplib.SMTPAuthenticationError:
         print("❌ Gmail登录失败！检查：1.Secrets里的邮箱/密码是否正确 2.环境变量是否读取成功")
     except Exception as e:
@@ -180,7 +185,7 @@ def fetch_rss():
     # 有新资讯才发送邮件（小白不用动）
     if news_html_list:
         final_content = "\n".join(news_html_list)
-        email_title = f"⏰ | {display_bj_date}"  # 邮件主题：完整北京时间（年-月-日）
+        email_title = f"快讯 | {display_bj_date}"  # 邮件主题：完整北京时间（年-月-日）
         send_email(email_title, final_content, display_bj_date)  # 调用修改后的发送函数
     else:
         print("ℹ️  暂无新资讯，本次不推送邮件")
