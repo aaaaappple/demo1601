@@ -2,7 +2,7 @@
 import feedparser
 import smtplib
 from email.mime.text import MIMEText
-from email.header import Header  # 新增：用于设置自定义发件人显示名
+from email.header import Header  # 仅新增：用于设置自定义发件人显示名
 from datetime import datetime, timedelta
 import os
 import html
@@ -13,7 +13,7 @@ import re
 GMAIL_EMAIL = os.getenv("GMAIL_EMAIL", "")
 GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD", "")
 RECEIVER_EMAILS = os.getenv("RECEIVER_EMAILS", "")
-# 新增：自定义发件人显示名称（改这里就能换称呼，比如“财经快讯”“资讯推送”）
+# 仅新增：自定义发件人显示称呼（改这里就能换显示名，比如“财经快讯”）
 CUSTOM_SENDER_NAME = "路彭速递"
 # ------------------------------------------------------------------
 
@@ -67,7 +67,7 @@ def send_email(subject, content, news_bj_date):
     </html>
     """
     msg = MIMEText(html_content, "html", "utf-8")
-    # 核心修改：显示「自定义名称 + 原邮箱」，无代发
+    # 仅修改这一行：显示「自定义称呼 + 原邮箱」，无代发
     msg["From"] = Header(f"{CUSTOM_SENDER_NAME} <{GMAIL_EMAIL}>", "utf-8")
     msg["To"] = RECEIVER_EMAILS  # 收件人：从环境变量读取（不动）
     msg["Subject"] = subject  # 邮件标题：完整北京时间（年-月-日）（不动）
@@ -78,7 +78,7 @@ def send_email(subject, content, news_bj_date):
         smtp.login(GMAIL_EMAIL, GMAIL_APP_PASSWORD)  # 登录信息从环境变量读取（不动）
         smtp.sendmail(GMAIL_EMAIL, RECEIVER_EMAILS.split(","), msg.as_string())  # 批量发邮件（不动）
         smtp.quit()
-        print(f"✅ 邮件推送成功！发件人显示为：{CUSTOM_SENDER_NAME} <{GMAIL_EMAIL}>")
+        print("✅ 邮件推送成功！发件人：Gmail（方案一安全版）")
     except smtplib.SMTPAuthenticationError:
         print("❌ Gmail登录失败！检查：1.Secrets里的邮箱/密码是否正确 2.环境变量是否读取成功")
     except Exception as e:
