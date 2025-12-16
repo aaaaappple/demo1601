@@ -44,7 +44,7 @@ def save_pushed_id(id):
     with open("pushed_ids.txt", "a", encoding="utf-8") as f:
         f.write(f"{id}\n")
 
-# 发送邮件（Gmail发件+密送收件，收件人互不可见）
+# 发送邮件（Gmail发件+密送收件，彻底隐藏所有收件人）
 def send_email(subject, content, news_bj_date):
     html_content = f"""
     <!DOCTYPE html>
@@ -69,21 +69,22 @@ def send_email(subject, content, news_bj_date):
     msg = MIMEText(html_content, "html", "utf-8")
     # 🔴 发件人：自定义昵称+邮箱
     msg["From"] = f"{CUSTOM_NICKNAME} <{GMAIL_EMAIL}>"
-    # 🔴 To字段填发件人自身（避免空值，收件人看不到这个字段的实际作用）
-    msg["To"] = GMAIL_EMAIL
-    # 🔴 拆分收件人列表并过滤空值，作为密送对象（互不可见）
-    receiver_list = [email.strip() for email in RECEIVER_EMAILS.split(",") if email.strip()]
-    msg["Bcc"] = ", ".join(receiver_list)  # 密送字段，邮件头不显示具体地址
+    # 🔴 To字段设为未公开收件人（标准占位符，收件人看不到任何实际邮箱）
+    msg["To"] = "undisclosed-recipients:;"
+    # 🔴 不设置msg["Bcc"]，避免邮件头暴露密送信息
     msg["Subject"] = subject  # 邮件标题：完整北京时间（年-月-日）
+
+    # 拆分收件人列表并过滤空值
+    receiver_list = [email.strip() for email in RECEIVER_EMAILS.split(",") if email.strip()]
 
     try:
         # 连接Gmail服务器（固定参数，小白不用动）
         smtp = smtplib.SMTP_SSL("smtp.gmail.com", 465)
         smtp.login(GMAIL_EMAIL, GMAIL_APP_PASSWORD)  # 登录信息从环境变量读取
-        # 🔴 发送时指定密送列表，每个收件人仅看到自己
+        # 🔴 仅在发送时传入收件人列表，邮件头无任何收件人信息
         smtp.sendmail(GMAIL_EMAIL, receiver_list, msg.as_string())
         smtp.quit()
-        print("✅ 邮件推送成功！密送模式（收件人互不可见）")
+        print("✅ 邮件推送成功！密送模式（收件人完全不可见）")
     except smtplib.SMTPAuthenticationError:
         print("❌ Gmail登录失败！检查：1.Secrets里的邮箱/密码是否正确 2.环境变量是否读取成功")
     except Exception as e:
