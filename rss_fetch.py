@@ -15,7 +15,7 @@ RECEIVER_EMAILS = os.getenv("RECEIVER_EMAILS", "")
 # ------------------------------------------------------------------
 
 # 🔴 自定义发件人昵称（直接修改等号后的文字即可）
-CUSTOM_NICKNAME = "i"  # 这里替换成你想要的称呼
+CUSTOM_NICKNAME = "快讯"  # 这里替换成你想要的称呼
 
 # 数据源配置（路透社+彭博社，小白不用动）
 RSS_SOURCES = [
@@ -180,7 +180,7 @@ def fetch_rss():
     # 有新资讯才发送邮件（小白不用动）
     if news_html_list:
         final_content = "\n".join(news_html_list)
-        email_title = f"快讯 | {display_bj_date}"  # 邮件主题：完整北京时间（年-月-日）
+        email_title = f"⏰ | {display_bj_date}"  # 邮件主题：完整北京时间（年-月-日）
         send_email(email_title, final_content, display_bj_date)  # 调用修改后的发送函数
     else:
         print("ℹ️  暂无新资讯，本次不推送邮件")
