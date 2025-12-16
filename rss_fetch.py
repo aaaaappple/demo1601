@@ -1,7 +1,8 @@
-# 导入工具（小白不用动）
+# 导入工具（新增Header类用于发件人编码，小白不用动）
 import feedparser
 import smtplib
 from email.mime.text import MIMEText
+from email.header import Header  # 新增：核心修改1——导入编码类
 from datetime import datetime, timedelta
 import os
 import html
@@ -12,6 +13,9 @@ import re
 GMAIL_EMAIL = os.getenv("GMAIL_EMAIL", "")
 GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD", "")
 RECEIVER_EMAILS = os.getenv("RECEIVER_EMAILS", "")
+# 核心修改2——添加你的Gmail别名配置（仅改这里的别名邮箱）
+ALIAS_EMAIL = "hellostudyking@gmail.com"  # 替换为你验证好的Gmail别名
+SENDER_DISPLAY_NAME = "路彭速递"  # 发件人显示名（可改，如"资讯推送"）
 # ------------------------------------------------------------------
 
 # 数据源配置（路透社+彭博社，小白不用动）
@@ -25,7 +29,7 @@ COLORS = {
     "time": "#F97316",       # 时间：橙色
     "reuters": "#E63946",    # 路透社：红色
     "bloomberg": "#1D4ED8",  # 彭博社：蓝色
-    "link": "#E63946",       # 链接符号：红色
+    "link": "#E63946",       # 链接符号：红色（保持你的修改）
     "title": "#2E4057"       # 主标题：深蓝色
 }
 
@@ -41,7 +45,7 @@ def save_pushed_id(id):
     with open("pushed_ids.txt", "a", encoding="utf-8") as f:
         f.write(f"{id}\n")
 
-# 发送邮件（Gmail发件+批量收件，小白不用动）
+# 发送邮件（核心修改3——用别名发件，其余不变）
 def send_email(subject, content, news_bj_date):
     html_content = f"""
     <!DOCTYPE html>
@@ -64,19 +68,25 @@ def send_email(subject, content, news_bj_date):
     </html>
     """
     msg = MIMEText(html_content, "html", "utf-8")
-    msg["From"] = GMAIL_EMAIL  # 发件人：从环境变量读取
-    msg["To"] = RECEIVER_EMAILS  # 收件人：从环境变量读取
+    # 核心修改：发件人改为别名（带显示名，用Header编码避免乱码）
+    msg["From"] = Header(f"{SENDER_DISPLAY_NAME} <{ALIAS_EMAIL}>", "utf-8")
+    msg["To"] = RECEIVER_EMAILS  # 收件人：保持你的原有配置（如需密送见下方注释）
+    # 如需密送（收件人互不可见），注释上面的msg["To"]，取消下面两行注释：
+    # msg["To"] = Header("", "utf-8")
+    # msg["Bcc"] = Header(RECEIVER_EMAILS, "utf-8")
     msg["Subject"] = subject  # 邮件标题：完整北京时间（年-月-日）
 
     try:
         # 连接Gmail服务器（固定参数，小白不用动）
         smtp = smtplib.SMTP_SSL("smtp.gmail.com", 465)
-        smtp.login(GMAIL_EMAIL, GMAIL_APP_PASSWORD)  # 登录信息从环境变量读取
-        smtp.sendmail(GMAIL_EMAIL, RECEIVER_EMAILS.split(","), msg.as_string())  # 批量发邮件
+        smtp.login(GMAIL_EMAIL, GMAIL_APP_PASSWORD)  # 仍用主账号登录（不变）
+        # 核心修改：SMTP发送时指定别名为发件人
+        smtp.sendmail(ALIAS_EMAIL, RECEIVER_EMAILS.split(","), msg.as_string())  # 批量发邮件
         smtp.quit()
-        print("✅ 邮件推送成功！发件人：Gmail（方案一安全版）")
+        print.quit()
+        print(f"✅ 邮件推送成功！发件人已显示为：{SENDER_DISPLAY_NAME} <{ALIAS_EMAIL}>")
     except smtplib.SMTPAuthenticationError:
-        print("❌ Gmail登录失败！检查：1.Secrets里的邮箱/密码是否正确 2.环境变量是否读取成功")
+        print("❌ Gmail登录失败！检查：1.Secrets里的主账号/密码是否正确 2.别名是否已验证并设为默认")
     except Exception as e:
         print(f"❌ 推送失败：{e}")
 
@@ -184,3 +194,4 @@ def fetch_rss():
 # 执行脚本（小白不用动）
 if __name__ == "__main__":
     fetch_rss()
+
