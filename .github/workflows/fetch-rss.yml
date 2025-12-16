@@ -1,0 +1,42 @@
+name: 自动抓取资讯推邮箱
+# 触发规则：每分钟自动跑 + 手动触发测试
+on:
+  schedule:
+    - cron: '* * * * *'  # 每分钟自动运行（免费资源够用）
+  workflow_dispatch:  # 手动触发（测试用）
+
+jobs:
+  fetch-and-send:
+    runs-on: ubuntu-latest  # GitHub免费服务器
+    steps:
+      # 步骤1：拉取仓库代码
+      - name: 拉取代码
+        uses: actions/checkout@v4
+      
+      # 步骤2：安装Python环境
+      - name: 安装Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      
+      # 步骤3：安装抓资讯工具
+      - name: 安装工具
+        run: pip install feedparser
+      
+      # 步骤4：运行脚本（从安全区读密码，小白不用动）
+      - name: 运行脚本发邮件
+        env:
+          GMAIL_EMAIL: ${{ secrets.GMAIL_EMAIL }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          RECEIVER_EMAILS: ${{ secrets.RECEIVER_EMAILS }}
+        run: python rss_fetch.py
+      
+      # 步骤5：保存已发资讯记录（防重复，小白不用动）
+      - name: 保存防重复记录
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "action@github.com"
+          git add pushed_ids.txt
+          git commit -m "更新已推送资讯ID"
+          git push
+        continue-on-error: true
