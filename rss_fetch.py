@@ -1,8 +1,8 @@
-# 导入工具（新增Header类用于发件人编码，小白不用动）
+# 导入工具（仅新增Header类，其余不动）
 import feedparser
 import smtplib
 from email.mime.text import MIMEText
-from email.header import Header  # 核心新增：处理发件人名称编码
+from email.header import Header  # 仅新增：用于设置发件人显示名称
 from datetime import datetime, timedelta
 import os
 import html
@@ -13,9 +13,8 @@ import re
 GMAIL_EMAIL = os.getenv("GMAIL_EMAIL", "")
 GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD", "")
 RECEIVER_EMAILS = os.getenv("RECEIVER_EMAILS", "")
-# 核心新增：配置你的Gmail别名和自定义显示名（仅改这里）
-ALIAS_EMAIL = "hellostudyking@gmail.com"  # 你已验证的Gmail别名
-SENDER_DISPLAY_NAME = "路彭速递"          # 邮件列表中要显示的名称（替换i.swordwei）
+# 仅新增：自定义发件人显示名称（改这里即可，如“路彭速递”“资讯推送”）
+SENDER_DISPLAY_NAME = "路彭速递"
 # ------------------------------------------------------------------
 
 # 数据源配置（路透社+彭博社，小白不用动）
@@ -45,7 +44,7 @@ def save_pushed_id(id):
     with open("pushed_ids.txt", "a", encoding="utf-8") as f:
         f.write(f"{id}\n")
 
-# 发送邮件（核心修改：替换发件人显示名，消除i.swordwei）
+# 发送邮件（仅修改msg["From"]一行，其余不动）
 def send_email(subject, content, news_bj_date):
     html_content = f"""
     <!DOCTYPE html>
@@ -68,25 +67,20 @@ def send_email(subject, content, news_bj_date):
     </html>
     """
     msg = MIMEText(html_content, "html", "utf-8")
-    
-    # 核心修改1：发件人改为「自定义名称+别名邮箱」，替换原i.swordwei
-    msg["From"] = Header(f"{SENDER_DISPLAY_NAME} <{ALIAS_EMAIL}>", "utf-8")
-    # 可选：清空To字段改用密送，消除收件人栏异常文字（如需则取消注释）
-    # msg["To"] = Header("", "utf-8")
-    # msg["Bcc"] = Header(RECEIVER_EMAILS, "utf-8")
-    msg["To"] = RECEIVER_EMAILS  # 保留原To字段（如需密送则注释此行）
-    msg["Subject"] = subject  # 邮件标题：完整北京时间（年-月-日）
+    # 仅修改这一行：设置自定义发件人显示名+邮箱，替换原GMAIL_EMAIL
+    msg["From"] = Header(f"{SENDER_DISPLAY_NAME} <{GMAIL_EMAIL}>", "utf-8")
+    msg["To"] = RECEIVER_EMAILS  # 收件人：从环境变量读取（不动）
+    msg["Subject"] = subject  # 邮件标题：完整北京时间（年-月-日）（不动）
 
     try:
         # 连接Gmail服务器（固定参数，小白不用动）
         smtp = smtplib.SMTP_SSL("smtp.gmail.com", 465)
-        smtp.login(GMAIL_EMAIL, GMAIL_APP_PASSWORD)  # 仍用主账号登录
-        # 核心修改2：SMTP发送时指定别名为发件人，让邮件列表显示自定义名称
-        smtp.sendmail(ALIAS_EMAIL, RECEIVER_EMAILS.split(","), msg.as_string())
+        smtp.login(GMAIL_EMAIL, GMAIL_APP_PASSWORD)  # 登录信息从环境变量读取（不动）
+        smtp.sendmail(GMAIL_EMAIL, RECEIVER_EMAILS.split(","), msg.as_string())  # 批量发邮件（不动）
         smtp.quit()
-        print(f"✅ 邮件推送成功！发件人已显示为：{SENDER_DISPLAY_NAME}")
+        print("✅ 邮件推送成功！发件人：Gmail（方案一安全版）")
     except smtplib.SMTPAuthenticationError:
-        print("❌ Gmail登录失败！检查：1.Secrets里的邮箱/密码是否正确 2.别名是否已验证并设为默认")
+        print("❌ Gmail登录失败！检查：1.Secrets里的邮箱/密码是否正确 2.环境变量是否读取成功")
     except Exception as e:
         print(f"❌ 推送失败：{e}")
 
@@ -155,7 +149,7 @@ def fetch_rss():
     all_news.sort(key=lambda x: -x[0])
     news_html_list = []  # 存储每条资讯的HTML代码
 
-    # 确定两处标题的显示日期：优先最新资讯的完整北京时间（年-月-日）
+    # 确定两处标题的显示日期：优先最新资讯的完整北京时间（年-月-日）（小白不用动）
     if all_news:
         display_bj_date = all_news[0][6]  # 最新资讯的完整北京时间（年-月-日）
     else:
@@ -186,8 +180,8 @@ def fetch_rss():
     # 有新资讯才发送邮件（小白不用动）
     if news_html_list:
         final_content = "\n".join(news_html_list)
-        email_title = f"快讯 | {display_bj_date}"  # 邮件主题：完整北京时间（年-月-日）
-        send_email(email_title, final_content, display_bj_date)  # 调用修改后的发送函数
+        email_title = f"快讯 | {display_bj_date}"  # 邮件主题：完整北京时间（年-月-日）（不动）
+        send_email(email_title, final_content, display_bj_date)  # 调用修改后的发送函数（不动）
     else:
         print("ℹ️  暂无新资讯，本次不推送邮件")
 
