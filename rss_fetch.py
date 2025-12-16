@@ -56,7 +56,7 @@ def send_email(subject, content, news_bj_date):
         </style>
     </head>
     <body>
-        <h2 style="color:{COLORS['title']}; font-size:18px; margin-bottom:25px;">路彭速递（{news_bj_date}）</h2>
+        <h2 style="color:{COLORS['title']}; font-size:18px; margin-bottom:25px;">📩 路彭速递（{news_bj_date}）</h2>
         <ul style="padding-left:5px; margin:0;">
             {content}
         </ul>
