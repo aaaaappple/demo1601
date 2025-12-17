@@ -13,7 +13,7 @@ GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD", "")
 RECEIVER_EMAILS = os.getenv("RECEIVER_EMAILS", "")
 
 # 自定义发件人昵称
-CUSTOM_NICKNAME = "♥️快讯"
+CUSTOM_NICKNAME = "♥️综合快讯"
 
 # 数据源配置
 RSS_SOURCES = [
