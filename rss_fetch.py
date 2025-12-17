@@ -13,7 +13,7 @@ GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD", "")
 RECEIVER_EMAILS = os.getenv("RECEIVER_EMAILS", "")
 
 # 自定义发件人昵称
-CUSTOM_NICKNAME = "aa快讯"
+CUSTOM_NICKNAME = "源子快讯"
 
 # 数据源配置
 RSS_SOURCES = [
@@ -200,7 +200,7 @@ def fetch_rss():
 
     if news_html_list:
         final_content = "\n".join(news_html_list)
-        email_title = f"快讯 | {display_bj_date}"
+        email_title = f"⏰ | {display_bj_date}"
         send_email(email_title, final_content, display_bj_date)
     else:
         print("ℹ️  暂无新资讯，本次不推送")
