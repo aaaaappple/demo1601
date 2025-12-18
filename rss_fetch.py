@@ -149,7 +149,7 @@ def get_news_bj_date(entry):
 def fetch_rss():
     pushed_ids = get_pushed_ids()
     all_news = []  # 存储：(时间类型标识, 时间戳, 来源, 展示时间, 标题, 链接, 资讯ID, 完整日期)
-    source_counter = {"路": 0, "彭": 0}
+    source_counter = {"路透社": 0, "彭博社": 0}
     global_counter = 0
 
     for rss_url, source in RSS_SOURCES:
