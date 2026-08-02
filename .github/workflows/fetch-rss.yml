@@ -3,7 +3,7 @@ name: 彭路资讯推邮箱
 on:
   schedule:
     # cron格式：分 时 日 月 周；配合时区Asia/Shanghai=北京时间21点30分执行
-    - cron: '30 21 * * *'
+    - cron: '30 20 * * *'
       timezone: Asia/Shanghai
   workflow_dispatch:  # 手动触发（测试用）
 
