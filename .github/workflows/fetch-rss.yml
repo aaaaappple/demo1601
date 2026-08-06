@@ -1,8 +1,10 @@
 name: 彭路资讯推邮箱
+permissions:
+  contents: write   # ✅关键：赋予actions写入仓库权限，修复git push 403
 # 触发规则：北京时间每晚八点五十一分自动跑 + 手动触发测试
 on:
   schedule:
-    # cron格式：分 时 日 月 周；配合时区Asia/Shanghai=北京时间21点30分执行
+    # cron格式：分 时 日 月 周；配合时区Asia/Shanghai=北京时间20点51分执行
     - cron: '51 20 * * *'
       timezone: Asia/Shanghai
   workflow_dispatch:  # 手动触发（测试用）
@@ -14,7 +16,9 @@ jobs:
       # 步骤1：拉取仓库代码
       - name: 拉取代码
         uses: actions/checkout@v4
-    
+        with:
+          fetch-depth: 0  # ✅完整拉取git历史，避免浅克隆无法commit推送
+      
       # 步骤2：安装Python环境
       - name: 安装Python
         uses: actions/setup-python@v5
@@ -39,7 +43,7 @@ jobs:
           git config --global user.name "GitHub Actions"
           git config --global user.email "action@github.com"
           git add pushed_ids.txt
-          git commit -m "更新已推送资讯ID"
+          # 没有变更时跳过commit，避免脚本报错
+          git diff --cached --quiet || git commit -m "更新已推送资讯ID"
           git push
         continue-on-error: true
-
